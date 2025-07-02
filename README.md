@@ -19,7 +19,7 @@ LocalShare is a Rust-based application designed to facilitate secure and efficie
 Clone the repository and build the project:
 
 ```sh
-git clone https://github.com/yourusername/localshare.git
+git clone https://github.com/erbekin/localshare.git
 cd localshare
 cargo build --release
 ```
