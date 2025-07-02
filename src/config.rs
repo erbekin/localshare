@@ -1,0 +1,61 @@
+use actix_files::NamedFile;
+use actix_web::{http::header::ContentType, http::StatusCode, web, Either, HttpResponse};
+use actix_web::Responder;
+use log::info;
+
+pub fn configure_logger(level : log::LevelFilter) -> Result<(), log::SetLoggerError>{
+    env_logger::builder()
+    .write_style(env_logger::WriteStyle::Always)
+    .default_format()
+    .format_level(true)
+    .format_indent(Some(4))
+    .format_target(true)
+    .filter_level(level)
+    .try_init()
+}
+
+pub fn get_404_page() -> actix_web::Route {
+    web::get().to(async || -> Either<_,_> {
+            match NamedFile::open_async("static/not_found.html").await {
+                Ok(f) => {
+                    Either::Left(f.customize().with_status(StatusCode::NOT_FOUND))
+                }
+                Err(e) => {
+                    info!("default route html file error: {}", e);
+                    Either::Right(HttpResponse::NotFound().content_type(ContentType::html()).body(
+                r#"
+                    <h1>Not Found</h1>
+                    <p> We don't have such page</p1>
+                    <p><a href="/"> Go home. </a></p>
+                "#
+            ))
+                }
+            }
+        })
+}
+
+pub fn get_upload_page() -> actix_web::Route {
+    web::get().to(async || ->  actix_web::Result<NamedFile>{
+        match NamedFile::open_async("static/uploadv2.html").await {
+            Ok(f) => {
+                Ok(f)
+            }
+            Err(e) => {
+                info!("upload route html file error: {}", e);
+                Err(actix_web::error::ErrorInternalServerError("failed to open html file"))
+            }
+        }
+    })
+}
+
+pub fn get_index_page() -> actix_web::Route {
+    web::get().to(async || -> actix_web::Result<NamedFile> {
+        match NamedFile::open_async("static/indexv2.html").await {
+            Ok(f)=> Ok(f),
+            Err(e) => {
+                info!("index route html file error: {}", e);
+                Err(actix_web::error::ErrorInternalServerError("failed to open html file"))
+            }
+        }
+    })
+}

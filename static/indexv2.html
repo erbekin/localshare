@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>File Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --primary-color: #667eea;
+      --primary-dark: #5a67d8;
+      --secondary-color: #f093fb;
+      --success-color: #48bb78;
+      --success-dark: #38a169;
+      --danger-color: #f56565;
+      --danger-dark: #e53e3e;
+      --bg-primary: #f7fafc;
+      --bg-secondary: #ffffff;
+      --text-primary: #2d3748;
+      --text-secondary: #4a5568;
+      --text-muted: #718096;
+      --border-color: #e2e8f0;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --border-radius: 12px;
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a202c;
+      --bg-secondary: #2d3748;
+      --text-primary: #f7fafc;
+      --text-secondary: #e2e8f0;
+      --text-muted: #a0aec0;
+      --border-color: #4a5568;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+      min-height: 100vh;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .header h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 1.1rem;
+      font-weight: 300;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .language-selector {
+      position: relative;
+    }
+
+    .language-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .language-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .language-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      min-width: 120px;
+      z-index: 100;
+      display: none;
+      overflow: hidden;
+    }
+
+    .language-dropdown.show {
+      display: block;
+    }
+
+    .language-option {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      transition: var(--transition);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .language-option:last-child {
+      border-bottom: none;
+    }
+
+    .language-option:hover {
+      background: var(--bg-primary);
+    }
+
+    .theme-toggle {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: var(--transition);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .search-bar {
+      position: relative;
+      flex: 1;
+      max-width: 400px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      color: white;
+      font-size: 1rem;
+      transition: var(--transition);
+    }
+
+    .search-input::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .file-card {
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      transition: var(--transition);
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .file-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+
+    .file-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .file-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .file-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+      word-break: break-word;
+    }
+
+    .file-meta {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .file-description {
+      margin: 1rem 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-danger {
+      background: var(--danger-color);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-dark);
+    }
+
+    .upload-section {
+      text-align: center;
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 3rem 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .upload-btn {
+      background: linear-gradient(135deg, var(--success-color), var(--success-dark));
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: var(--transition);
+      box-shadow: var(--shadow);
+    }
+
+    .upload-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top: 3px solid var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      .file-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-bar {
+        max-width: none;
+        order: -1;
+      }
+
+      .file-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        flex: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .file-card {
+        padding: 1rem;
+      }
+
+      .file-header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .file-meta {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 data-i18n="title">File Manager</h1>
+      <p data-i18n="subtitle">Manage your uploaded files</p>
+    </header>
+
+    <div class="controls">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="Search files...">
+      </div>
+      
+      <div class="language-selector">
+        <button class="language-btn" onclick="toggleLanguageDropdown()">
+          <span id="current-language">🇺🇸 EN</span>
+          <span>▼</span>
+        </button>
+        <div class="language-dropdown" id="language-dropdown">
+          <div class="language-option" onclick="changeLanguage('en')">🇺🇸 English</div>
+          <div class="language-option" onclick="changeLanguage('tr')">🇹🇷 Türkçe</div>
+          <div class="language-option" onclick="changeLanguage('es')">🇪🇸 Español</div>
+          <div class="language-option" onclick="changeLanguage('fr')">🇫🇷 Français</div>
+          <div class="language-option" onclick="changeLanguage('de')">🇩🇪 Deutsch</div>
+        </div>
+      </div>
+
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">🌙</span>
+      </button>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p data-i18n="loading">Loading files...</p>
+    </div>
+
+    <div id="fileContainer" class="file-grid">
+      <!-- Files will be injected here -->
+    </div>
+
+    <div class="upload-section">
+      <h2 data-i18n="upload_new">Upload New File</h2>
+      <p data-i18n="upload_description" style="margin: 1rem 0; color: var(--text-muted);">
+        Share your files securely and easily
+      </p>
+      <a href="/upload.html" class="upload-btn">
+        <span>📤</span>
+        <span data-i18n="upload_button">Upload File</span>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Internationalization
+    const translations = {
+      en: {
+        title: "File Manager",
+        subtitle: "Manage your uploaded files",
+        search_placeholder: "Search files...",
+        loading: "Loading files...",
+        upload_new: "Upload New File",
+        upload_description: "Share your files securely and easily",
+        upload_button: "Upload File",
+        download: "Download",
+        remove: "Remove",
+        uploaded_by: "Uploaded by",
+        upload_date: "Upload date",
+        description: "Description",
+        no_files: "No files uploaded yet!",
+        no_files_subtitle: "Start by uploading your first file",
+        remove_confirm: "Are you sure you want to remove this file?",
+        remove_success: "File removed successfully",
+        remove_error: "Error removing file"
+      },
+      tr: {
+        title: "Dosya Yöneticisi",
+        subtitle: "Yüklenen dosyalarınızı yönetin",
+        search_placeholder: "Dosya ara...",
+        loading: "Dosyalar yükleniyor...",
+        upload_new: "Yeni Dosya Yükle",
+        upload_description: "Dosyalarınızı güvenli ve kolay bir şekilde paylaşın",
+        upload_button: "Dosya Yükle",
+        download: "İndir",
+        remove: "Sil",
+        uploaded_by: "Yükleyen",
+        upload_date: "Yükleme tarihi",
+        description: "Açıklama",
+        no_files: "Henüz dosya yüklenmedi!",
+        no_files_subtitle: "İlk dosyanızı yükleyerek başlayın",
+        remove_confirm: "Bu dosyayı silmek istediğinizden emin misiniz?",
+        remove_success: "Dosya başarıyla silindi",
+        remove_error: "Dosya silinirken hata oluştu"
+      },
+      es: {
+        title: "Gestor de Archivos",
+        subtitle: "Administra tus archivos subidos",
+        search_placeholder: "Buscar archivos...",
+        loading: "Cargando archivos...",
+        upload_new: "Subir Nuevo Archivo",
+        upload_description: "Comparte tus archivos de forma segura y fácil",
+        upload_button: "Subir Archivo",
+        download: "Descargar",
+        remove: "Eliminar",
+        uploaded_by: "Subido por",
+        upload_date: "Fecha de subida",
+        description: "Descripción",
+        no_files: "¡Aún no se han subido archivos!",
+        no_files_subtitle: "Comienza subiendo tu primer archivo",
+        remove_confirm: "¿Estás seguro de que quieres eliminar este archivo?",
+        remove_success: "Archivo eliminado exitosamente",
+        remove_error: "Error al eliminar el archivo"
+      },
+      fr: {
+        title: "Gestionnaire de Fichiers",
+        subtitle: "Gérez vos fichiers téléchargés",
+        search_placeholder: "Rechercher des fichiers...",
+        loading: "Chargement des fichiers...",
+        upload_new: "Télécharger un Nouveau Fichier",
+        upload_description: "Partagez vos fichiers en toute sécurité et facilité",
+        upload_button: "Télécharger un Fichier",
+        download: "Télécharger",
+        remove: "Supprimer",
+        uploaded_by: "Téléchargé par",
+        upload_date: "Date de téléchargement",
+        description: "Description",
+        no_files: "Aucun fichier téléchargé pour le moment !",
+        no_files_subtitle: "Commencez par télécharger votre premier fichier",
+        remove_confirm: "Êtes-vous sûr de vouloir supprimer ce fichier ?",
+        remove_success: "Fichier supprimé avec succès",
+        remove_error: "Erreur lors de la suppression du fichier"
+      },
+      de: {
+        title: "Datei-Manager",
+        subtitle: "Verwalten Sie Ihre hochgeladenen Dateien",
+        search_placeholder: "Dateien suchen...",
+        loading: "Dateien werden geladen...",
+        upload_new: "Neue Datei Hochladen",
+        upload_description: "Teilen Sie Ihre Dateien sicher und einfach",
+        upload_button: "Datei Hochladen",
+        download: "Herunterladen",
+        remove: "Entfernen",
+        uploaded_by: "Hochgeladen von",
+        upload_date: "Upload-Datum",
+        description: "Beschreibung",
+        no_files: "Noch keine Dateien hochgeladen!",
+        no_files_subtitle: "Beginnen Sie mit dem Upload Ihrer ersten Datei",
+        remove_confirm: "Sind Sie sicher, dass Sie diese Datei entfernen möchten?",
+        remove_success: "Datei erfolgreich entfernt",
+        remove_error: "Fehler beim Entfernen der Datei"
+      }
+    };
+
+    let currentLanguage = localStorage.getItem('language') || 'en';
+    let currentTheme = localStorage.getItem('theme') || 'light';
+    let allFiles = [];
+    let filteredFiles = [];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeTheme();
+      initializeLanguage();
+      loadFiles();
+      setupSearch();
+    });
+
+    function initializeTheme() {
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      document.getElementById('theme-icon').textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function initializeLanguage() {
+      const flags = { en: '🇺🇸', tr: '🇹🇷', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪' };
+      const names = { en: 'EN', tr: 'TR', es: 'ES', fr: 'FR', de: 'DE' };
+      document.getElementById('current-language').textContent = `${flags[currentLanguage]} ${names[currentLanguage]}`;
+      updateTexts();
+    }
+
+    function updateTexts() {
+      const elements = document.querySelectorAll('[data-i18n]');
+      elements.forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (translations[currentLanguage] && translations[currentLanguage][key]) {
+          element.textContent = translations[currentLanguage][key];
+        }
+      });
+
+      const placeholderElements = document.querySelectorAll('[data-i18n-placeholder]');
+      placeholderElements.forEach(element => {
+        const key = element.getAttribute('data-i18n-placeholder');
+        if (translations[currentLanguage] && translations[currentLanguage][key]) {
+          element.placeholder = translations[currentLanguage][key];
+        }
+      });
+    }
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', currentTheme);
+      initializeTheme();
+    }
+
+    function toggleLanguageDropdown() {
+      const dropdown = document.getElementById('language-dropdown');
+      dropdown.classList.toggle('show');
+    }
+
+    function changeLanguage(lang) {
+      currentLanguage = lang;
+      localStorage.setItem('language', lang);
+      initializeLanguage();
+      toggleLanguageDropdown();
+    }
+
+    function setupSearch() {
+      const searchInput = document.querySelector('.search-input');
+      searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        filteredFiles = allFiles.filter(file => 
+          file.name.toLowerCase().includes(query) ||
+          file.description.toLowerCase().includes(query) ||
+          (file.by && file.by.toLowerCase().includes(query))
+        );
+        renderFiles(filteredFiles);
+      });
+    }
+
+    function getFileIcon(filename, contentType) {
+      if (contentType) {
+        if (contentType.startsWith('image/')) return '🖼️';
+        if (contentType.startsWith('video/')) return '🎬';
+        if (contentType.startsWith('audio/')) return '🎵';
+        if (contentType.includes('pdf')) return '📄';
+        if (contentType.includes('text')) return '📝';
+        if (contentType.includes('zip') || contentType.includes('rar')) return '🗜️';
+      }
+      
+      const ext = filename.toLowerCase().split('.').pop();
+      const iconMap = {
+        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+        'mp4': '🎬', 'avi': '🎬', 'mov': '🎬',
+        'mp3': '🎵', 'wav': '🎵', 'flac': '🎵',
+        'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📝',
+        'zip': '🗜️', 'rar': '🗜️', '7z': '🗜️',
+        'js': '⚡', 'html': '🌐', 'css': '🎨',
+        'exe': '⚙️', 'app': '⚙️'
+      };
+      
+      return iconMap[ext] || '📁';
+    }
+
+    async function loadFiles() {
+      const loading = document.getElementById('loading');
+      const container = document.getElementById('fileContainer');
+      
+      loading.style.display = 'block';
+      container.innerHTML = '';
+      
+      try {
+        const res = await fetch("/api/list");
+        const data = await res.json();
+        allFiles = data;
+        filteredFiles = [...allFiles];
+        renderFiles(filteredFiles);
+      } catch (error) {
+        console.error('Error loading files:', error);
+        container.innerHTML = `<div class="empty-state">
+          <div class="empty-state-icon">❌</div>
+          <p>Error loading files</p>
+        </div>`;
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function renderFiles(files) {
+      const container = document.getElementById('fileContainer');
+      
+      if (files.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <h3 data-i18n="no_files">${translations[currentLanguage].no_files}</h3>
+            <p data-i18n="no_files_subtitle">${translations[currentLanguage].no_files_subtitle}</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = files.map(file => {
+        const uploadDate = new Date(file.uploaded_at);
+        const formattedDate = uploadDate.toLocaleString(currentLanguage === 'tr' ? 'tr-TR' : 'en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+
+        return `
+          <div class="file-card">
+            <div class="file-header">
+              <div class="file-icon">
+                ${getFileIcon(file.name, file.content_type)}
+              </div>
+              <div class="file-info">
+                <h3 class="file-name">${file.name}</h3>
+                <div class="file-meta">
+                  ${file.by ? `<span><strong data-i18n="uploaded_by">${translations[currentLanguage].uploaded_by}:</strong> ${file.by}</span>` : ''}
+                  <span><strong data-i18n="upload_date">${translations[currentLanguage].upload_date}:</strong> ${formattedDate}</span>
+                </div>
+              </div>
+            </div>
+            <div class="file-description">
+              <strong data-i18n="description">${translations[currentLanguage].description}:</strong> ${file.description}
+            </div>
+            <div class="file-actions">
+              <a href="/api/download/${file.id}" class="btn btn-primary">
+                <span>⬇️</span>
+                <span data-i18n="download">${translations[currentLanguage].download}</span>
+              </a>
+              <button class="btn btn-danger" onclick="removeFile('${file.id}')">
+                <span>🗑️</span>
+                <span data-i18n="remove">${translations[currentLanguage].remove}</span>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function removeFile(fileId) {
+      if (!confirm(translations[currentLanguage].remove_confirm)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/remove/${fileId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (response.ok) {
+          alert(translations[currentLanguage].remove_success);
+          loadFiles();
+        } else {
+          const error = await response.json();
+          alert(`${translations[currentLanguage].remove_error}: ${error.message}`);
+        }
+      } catch (error) {
+        alert(`${translations[currentLanguage].remove_error}: ${error.message}`);
+      }
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.language-selector')) {
+        document.getElementById('language-dropdown').classList.remove('show');
+      }
+    });
+  </script>
+</body>
+
+</html>
