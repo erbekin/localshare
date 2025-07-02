@@ -8,7 +8,7 @@ mod errors;
 use errors::AppError;
 mod record;
 
-const RECORD_FILENAME : &str = "file_records.json";
+pub const RECORD_FILENAME : &str = "file_records.json";
 #[derive(Debug)]
 pub struct AppConfig {
     upload_dir : PathBuf,
@@ -148,11 +148,21 @@ impl FileManager {
         self.records.push(record);
     }
 
+    pub fn remove_record(&mut self, id : &uuid::Uuid) -> Result<FileRecord, AppError>{
+        if let Some(pos) = self.records.iter().position(|r| r.id == *id) {
+            info!("Removing file record: {}", id);
+            Ok(self.records.remove(pos))
+        } else {
+            Err(AppError::RemoveError(format!("No file found with id: {}", id)))
+        }
+    }
+
     pub fn get_record(&self, id : &uuid::Uuid) -> Option<&FileRecord> {
         self.records.iter().find(|e| {
             e.id.eq(id)
         })
     }
+
 
     pub fn get_records(&self) -> &Vec<FileRecord> {
         &self.records

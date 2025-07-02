@@ -1,5 +1,5 @@
 
-use clap::{Parser};
+use clap::{Parser, ValueEnum};
 
 
 
@@ -21,6 +21,10 @@ pub struct Cli {
     /// Whether to create parent dirs if not exists
     #[arg(short = 'p')]
     pub create_parent_dirs : bool,
+
+    /// Log level
+    #[arg(short = 'l', long = "level")]
+    pub log_level : Option<CliLogLevel>,
 }
 
 
@@ -35,3 +39,27 @@ fn port_in_range(s: &str) -> Result<u16, String> {
 }
 
 
+/// Possible log levels (case-insensitive)
+#[derive(Copy, Clone, Debug, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum CliLogLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+/// `LogLevel` → `log::LevelFilter` dönüşümü
+impl From<CliLogLevel> for log::LevelFilter {
+    fn from(level: CliLogLevel) -> Self {
+        match level {
+            CliLogLevel::Off => log::LevelFilter::Off,
+            CliLogLevel::Error => log::LevelFilter::Error,
+            CliLogLevel::Warn => log::LevelFilter::Warn,
+            CliLogLevel::Info => log::LevelFilter::Info,
+            CliLogLevel::Debug => log::LevelFilter::Debug,
+            CliLogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
+}

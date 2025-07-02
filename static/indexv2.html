@@ -756,11 +756,14 @@
         return;
       }
 
+      let password = prompt("enter remove password:");
+
       try {
         const response = await fetch(`/api/remove/${fileId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-LocalShare-RMPASS' : password,
           }
         });
 

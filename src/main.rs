@@ -1,42 +1,58 @@
-use actix_web::{http::header::ContentDisposition, middleware::Logger, web, App, HttpResponse, HttpServer};
+use actix_web::{
+    App, CustomizeResponder, HttpRequest, HttpResponse, HttpServer, Responder,
+    http::{StatusCode, header::ContentDisposition},
+    middleware::Logger,
+    web,
+};
 use clap::Parser;
-use localshare::{AppConfig, FileManager, FileRecord};
-use log::{info, error, warn};
 use futures_util::StreamExt;
+use localshare::{AppConfig, FileManager, FileRecord};
+use log::{debug, error, info, warn};
 use serde::Deserialize;
-use std::{str::FromStr, sync::Mutex};
-use uuid::Uuid;
+use serde_json::json;
+use std::{io::ErrorKind, str::FromStr, sync::Mutex};
 use tokio::io::AsyncWriteExt;
+use uuid::Uuid;
 
-use crate::config::{get_404_page, get_upload_page, get_index_page};
+use crate::config::{get_404_page, get_index_page, get_upload_page};
 
-mod config;
 mod cli;
+mod config;
+
+// To prevent further env var changes
+const LOCALSHARE_RMPASS: &str = "LOCALSHARE_RMPASS";
+const LOCALSHARE_RMPASS_HEADER_STR: &str = "X-LocalShare-RMPASS";
 
 #[derive(Deserialize)]
-struct DownloadRequest {
+struct RequestId {
     id: Uuid,
 }
 
 struct AppState {
-    file_manager : Mutex<FileManager>
+    file_manager: Mutex<FileManager>,
+    remove_password: String,
 }
 
 async fn handle_download(
-    download_request: web::Path<DownloadRequest>,
-    app_state : web::Data<AppState>,
+    download_request: web::Path<RequestId>,
+    app_state: web::Data<AppState>,
 ) -> actix_web::Result<actix_files::NamedFile> {
     info!("Download request for id : '{}'", download_request.id);
 
     let fm = app_state.file_manager.lock().unwrap();
     match fm.get_record(&download_request.id) {
         Some(record) => {
+            let mut file = actix_files::NamedFile::open_async(&fm.get_file_path(record))
+                .await
+                .map_err(|e| {
+                    warn!(
+                        "file with id {} should exists but io error occured: {}",
+                        record.id, e
+                    );
+                    actix_web::error::ErrorInternalServerError("failed to open file")
+                })?
+                .set_content_disposition(ContentDisposition::attachment(&record.name));
 
-            let mut file = actix_files::NamedFile::open_async(&fm.get_file_path(record)).await.map_err(|e| {
-                warn!("file with id {} should exists but io error occured: {}", record.id, e);
-                actix_web::error::ErrorInternalServerError("failed to open file")
-            })?.set_content_disposition(ContentDisposition::attachment(&record.name));
-            
             match &record.content_type {
                 Some(ct) => {
                     if let Ok(mime) = actix_web::mime::Mime::from_str(ct) {
@@ -49,16 +65,13 @@ async fn handle_download(
             }
             Ok(file)
         }
-        None => {
-            Err(actix_web::error::ErrorNotFound("No such file"))
-        }
+        None => Err(actix_web::error::ErrorNotFound("No such file")),
     }
 }
 
-
 async fn handle_upload(
     mut payload: actix_multipart::Multipart,
-    app_state : web::Data<AppState>
+    app_state: web::Data<AppState>,
 ) -> actix_web::Result<web::Json<FileRecord>> {
     let mut file_data = None;
     let mut user_name = None;
@@ -66,31 +79,30 @@ async fn handle_upload(
 
     // Parse multipart form data
     while let Some(field_result) = payload.next().await {
-        let mut field = field_result.map_err(|e| {
-            actix_web::error::ErrorBadRequest(format!("Multipart error: {}", e))
-        })?;
+        let mut field = field_result
+            .map_err(|e| actix_web::error::ErrorBadRequest(format!("Multipart error: {}", e)))?;
 
         let field_name = field.name().unwrap_or("").to_string();
 
         match field_name.as_str() {
             "file" => {
-                let content_type = field.content_type().map(|f| {
-                    f.to_string()
-                });
+                let content_type = field.content_type().map(|f| f.to_string());
 
                 let original_filename = match field.content_disposition() {
                     None => String::from("unnamed"),
-                    Some(cd) => cd.get_filename().unwrap_or("unnamed").to_string()
+                    Some(cd) => cd.get_filename().unwrap_or("unnamed").to_string(),
                 };
 
                 let mut file_bytes = Vec::new();
 
                 while let Some(chunk_result) = field.next().await {
                     let chunk = chunk_result.map_err(|e| {
-                        actix_web::error::ErrorBadRequest(format!("Error reading file chunk: {}", e))
+                        actix_web::error::ErrorBadRequest(format!(
+                            "Error reading file chunk: {}",
+                            e
+                        ))
                     })?;
                     file_bytes.extend_from_slice(&chunk);
-
                 }
 
                 file_data = Some((file_bytes, original_filename, content_type));
@@ -99,7 +111,10 @@ async fn handle_upload(
                 let mut name_bytes = Vec::new();
                 while let Some(chunk_result) = field.next().await {
                     let chunk = chunk_result.map_err(|e| {
-                        actix_web::error::ErrorBadRequest(format!("Error reading name field: {}", e))
+                        actix_web::error::ErrorBadRequest(format!(
+                            "Error reading name field: {}",
+                            e
+                        ))
                     })?;
                     name_bytes.extend_from_slice(&chunk);
                 }
@@ -112,12 +127,18 @@ async fn handle_upload(
                 let mut desc_bytes = Vec::new();
                 while let Some(chunk_result) = field.next().await {
                     let chunk = chunk_result.map_err(|e| {
-                        actix_web::error::ErrorBadRequest(format!("Error reading description field: {}", e))
+                        actix_web::error::ErrorBadRequest(format!(
+                            "Error reading description field: {}",
+                            e
+                        ))
                     })?;
                     desc_bytes.extend_from_slice(&chunk);
                 }
                 description = Some(String::from_utf8(desc_bytes).map_err(|e| {
-                    actix_web::error::ErrorBadRequest(format!("Invalid UTF-8 in description field: {}", e))
+                    actix_web::error::ErrorBadRequest(format!(
+                        "Invalid UTF-8 in description field: {}",
+                        e
+                    ))
                 })?);
             }
             _ => {
@@ -128,8 +149,8 @@ async fn handle_upload(
     }
 
     // Validate required fields
-    let (file_bytes, original_filename, content_type) = file_data
-        .ok_or_else(|| actix_web::error::ErrorBadRequest("File field is required"))?;
+    let (file_bytes, original_filename, content_type) =
+        file_data.ok_or_else(|| actix_web::error::ErrorBadRequest("File field is required"))?;
 
     let description = description
         .ok_or_else(|| actix_web::error::ErrorBadRequest("Description field is required"))?;
@@ -142,7 +163,10 @@ async fn handle_upload(
 
     let upload_path = {
         let file_manager = app_state.file_manager.lock().map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("Failed to lock file manager: {}", e))
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to lock file manager: {}",
+                e
+            ))
         })?;
         file_manager.upload_dir().join(file_id.to_string())
     };
@@ -152,14 +176,14 @@ async fn handle_upload(
     })?;
 
     file.write_all(&file_bytes).await.map_err(|e| {
-         actix_web::error::ErrorInternalServerError(format!("Failed to write file: {}", e))
+        actix_web::error::ErrorInternalServerError(format!("Failed to write file: {}", e))
     })?;
 
     file.flush().await.map_err(|e| {
         actix_web::error::ErrorInternalServerError(format!("Failed to flush file: {}", e))
     })?;
 
-     // Create file record
+    // Create file record
     let file_record = FileRecord {
         id: file_id,
         name: original_filename,
@@ -172,25 +196,26 @@ async fn handle_upload(
     // Lock mutex and add record to file manager
     {
         let mut file_manager = app_state.file_manager.lock().map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("Failed to lock file manager: {}", e))
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to lock file manager: {}",
+                e
+            ))
         })?;
         file_manager.add_record(file_record.clone());
         file_manager.save_records().await.map_err(|e| {
-            actix_web::error::ErrorInternalServerError(format!("Failed to save file records: {}", e))
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to save file records: {}",
+                e
+            ))
         })?;
     }
 
     // Return success response
     Ok(web::Json(file_record))
-
-
 }
 
-
-
-
 async fn handle_list(
-    app_state : web::Data<AppState>
+    app_state: web::Data<AppState>,
 ) -> actix_web::Result<web::Json<Vec<FileRecord>>> {
     let list = {
         let fm = app_state.file_manager.lock().map_err(|e| {
@@ -201,15 +226,137 @@ async fn handle_list(
     Ok(web::Json(list))
 }
 
+async fn handle_remove(
+    req: HttpRequest,
+    req_id: web::Path<RequestId>,
+    app_state: web::Data<AppState>,
+) -> CustomizeResponder<web::Json<serde_json::Value>> {
+    match req.headers().get(LOCALSHARE_RMPASS_HEADER_STR) {
+        Some(h) => {
+            if !h
+                .as_bytes()
+                .iter()
+                .eq(app_state.remove_password.as_bytes().iter())
+            {
+                return web::Json(json!({
+                    "message" : "password is incorrect, try again or ask server admin"
+                }))
+                .customize()
+                .with_status(StatusCode::UNAUTHORIZED);
+            }
+        }
+        None => {
+            return web::Json(json!({
+                "message" : "password header not found"
+            }))
+            .customize()
+            .with_status(StatusCode::UNAUTHORIZED);
+        }
+    }
+
+    let mut fm = match app_state.file_manager.lock() {
+        Ok(fmg) => fmg,
+        Err(e) => {
+            error!("failed to acquire fm lock: {}", e);
+            return web::Json(json!({
+                "message" : "Internal server error, please try again later"
+            }))
+            .customize()
+            .with_status(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    match fm.remove_record(&req_id.id) {
+        Ok(r) => {
+            // update record file
+            match fm.save_records().await {
+                Ok(_) => {
+                    info!("{} was saved", localshare::RECORD_FILENAME);
+                } 
+                Err(e) => {
+                    error!("error while saving {}: {}", localshare::RECORD_FILENAME, e);
+                }
+            }
+            // remove actual file from disk
+            let path = fm.get_file_path(&r);
+            match tokio::fs::remove_file(&path).await {
+                Ok(_) => {
+                    return web::Json(json!({
+                        "message" :"success",
+                    }))
+                    .customize()
+                    .with_status(StatusCode::OK);
+                }
+                Err(e) => {
+                    error!(
+                        "file couldn't removed from disk but it was removed from records, cause: {}",
+                        e
+                    );
+                    if e.kind() != ErrorKind::NotFound {
+                        warn!("the file with id can be deleted manually: id: {}", r.id);
+                    }
+                    return web::Json(json!({
+                        "message" :"success",
+                    }))
+                    .customize()
+                    .with_status(StatusCode::OK);
+                }
+            }
+        }
+        Err(e) => {
+            return web::Json(json!({
+                "message" : format!("{}", e).as_str(),
+            }))
+            .customize()
+            .with_status(StatusCode::NOT_FOUND);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-
     let cli = cli::Cli::parse();
-    info!("parsed args: {:#?}", cli);
-    config::configure_logger(log::LevelFilter::Info).expect("Failed to init logger");
+    let log_level_filter = match cli.log_level {
+        Some(l) => l.into(),
+        None => log::LevelFilter::Info,
+    };
+    config::configure_logger(log_level_filter).expect("Failed to init logger");
     info!(target : "app", "Logger initialized");
+    debug!("parsed args: {:#?}", cli);
 
-    let config = AppConfig::new().create_dir(cli.create_parent_dirs).set_dir(cli.dir);
+    match dotenvy::dotenv() {
+        Ok(_) => {
+            info!(".env loaded.");
+        }
+        Err(e) => {
+            warn!("error while loading .env: {}", e);
+        }
+    }
+
+    let rm_pass = std::env::var(LOCALSHARE_RMPASS).unwrap_or_else(|e| {
+        error!(
+            "environment variable: {} not found: {}",
+            LOCALSHARE_RMPASS, e
+        );
+        info!("please set {} env variable.", LOCALSHARE_RMPASS);
+        String::new()
+    });
+    if rm_pass.is_empty() {
+        error!(
+            "env var {} should not be empty. Please set this to a strong password",
+            LOCALSHARE_RMPASS
+        );
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "env var {} should not be empty. Please set this to a strong password",
+                LOCALSHARE_RMPASS
+            ),
+        ));
+    }
+
+    let config = AppConfig::new()
+        .create_dir(cli.create_parent_dirs)
+        .set_dir(cli.dir);
     let mut fm = match FileManager::from_config(config) {
         Ok(f) => f,
         Err(e) => {
@@ -223,10 +370,9 @@ async fn main() -> std::io::Result<()> {
     }
 
     let file_manager = web::Data::new(AppState {
-        file_manager : Mutex::new(fm)
+        file_manager: Mutex::new(fm),
+        remove_password: rm_pass,
     });
-
-
 
     HttpServer::new(move || {
         App::new()
@@ -235,14 +381,17 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/",
                 web::get().to(async || {
-                    HttpResponse::Found().append_header(("Location", "/index.html")).finish()
+                    HttpResponse::Found()
+                        .append_header(("Location", "/index.html"))
+                        .finish()
                 }),
             )
             .route("/index.html", get_index_page())
             .route("/upload.html", get_upload_page())
             .route("/api/list", web::get().to(handle_list))
-            .route("api/upload", web::post().to(handle_upload))
-            .route("api/download/{id}", web::get().to(handle_download))
+            .route("/api/upload", web::post().to(handle_upload))
+            .route("/api/remove/{id}", web::post().to(handle_remove))
+            .route("/api/download/{id}", web::get().to(handle_download))
             .route("/404", get_404_page())
             .default_service(config::get_404_page())
     })
