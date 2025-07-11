@@ -25,6 +25,10 @@ pub struct Cli {
     /// Log level
     #[arg(short = 'l', long = "level")]
     pub log_level : Option<CliLogLevel>,
+
+    #[arg(short='x', long = "extract")]
+    /// Extract the static files, if you have just executable program. The directory is {DIR}/static
+    pub extract_static_files : bool
 }
 
 

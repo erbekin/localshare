@@ -10,7 +10,7 @@ use localshare::{AppConfig, FileManager, FileRecord};
 use log::{debug, error, info, warn};
 use serde::Deserialize;
 use serde_json::json;
-use std::{io::ErrorKind, str::FromStr, sync::Mutex};
+use std::{io::ErrorKind, path::PathBuf, str::FromStr, sync::Mutex};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
@@ -22,6 +22,9 @@ mod config;
 // To prevent further env var changes
 const LOCALSHARE_RMPASS: &str = "LOCALSHARE_RMPASS";
 const LOCALSHARE_RMPASS_HEADER_STR: &str = "X-LocalShare-RMPASS";
+const STATIC_DIRNAME_DEV : &str = "static";
+const STATIC_DIRNAME_EXE : &str = "static";
+
 
 #[derive(Deserialize)]
 struct RequestId {
@@ -31,6 +34,7 @@ struct RequestId {
 struct AppState {
     file_manager: Mutex<FileManager>,
     remove_password: String,
+    static_dir : PathBuf,
 }
 
 async fn handle_download(
@@ -354,9 +358,12 @@ async fn main() -> std::io::Result<()> {
         ));
     }
 
+    
+    
+
     let config = AppConfig::new()
         .create_dir(cli.create_parent_dirs)
-        .set_dir(cli.dir);
+        .set_dir(&cli.dir);
     let mut fm = match FileManager::from_config(config) {
         Ok(f) => f,
         Err(e) => {
@@ -369,9 +376,21 @@ async fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
+    let mut static_dir = PathBuf::from(STATIC_DIRNAME_DEV);
+
+    if cli.extract_static_files {
+        info!("extracting static files.");
+        let extract_dir = PathBuf::from(&cli.dir).join(STATIC_DIRNAME_EXE);
+        
+        std::fs::create_dir_all(&extract_dir)?;
+        localshare::assets::Assets::new().extract_to_dir(&extract_dir)?;
+        static_dir = extract_dir;
+    }
+
     let file_manager = web::Data::new(AppState {
         file_manager: Mutex::new(fm),
         remove_password: rm_pass,
+        static_dir
     });
 
     HttpServer::new(move || {

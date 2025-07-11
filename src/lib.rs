@@ -7,6 +7,7 @@ pub use record::FileRecord;
 mod errors;
 use errors::AppError;
 mod record;
+pub mod assets;
 
 pub const RECORD_FILENAME : &str = "file_records.json";
 #[derive(Debug)]

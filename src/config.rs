@@ -1,7 +1,12 @@
+
 use actix_files::NamedFile;
 use actix_web::{http::header::ContentType, http::StatusCode, web, Either, HttpResponse};
 use actix_web::Responder;
+use localshare::assets::StaticFile;
 use log::info;
+use std::path::PathBuf;
+
+use crate::AppState;
 
 pub fn configure_logger(level : log::LevelFilter) -> Result<(), log::SetLoggerError>{
     env_logger::builder()
@@ -15,8 +20,8 @@ pub fn configure_logger(level : log::LevelFilter) -> Result<(), log::SetLoggerEr
 }
 
 pub fn get_404_page() -> actix_web::Route {
-    web::get().to(async || -> Either<_,_> {
-            match NamedFile::open_async("static/not_found.html").await {
+    web::get().to(async |app_state : web::Data<AppState>| -> Either<_,_> {
+            match NamedFile::open_async(app_state.static_dir.join(PathBuf::from(StaticFile::NotFound))).await {
                 Ok(f) => {
                     Either::Left(f.customize().with_status(StatusCode::NOT_FOUND))
                 }
@@ -35,8 +40,8 @@ pub fn get_404_page() -> actix_web::Route {
 }
 
 pub fn get_upload_page() -> actix_web::Route {
-    web::get().to(async || ->  actix_web::Result<NamedFile>{
-        match NamedFile::open_async("static/uploadv2.html").await {
+    web::get().to(async |app_state : web::Data<AppState>| ->  actix_web::Result<NamedFile>{
+        match NamedFile::open_async(app_state.static_dir.join(PathBuf::from(StaticFile::Upload))).await {
             Ok(f) => {
                 Ok(f)
             }
@@ -49,8 +54,8 @@ pub fn get_upload_page() -> actix_web::Route {
 }
 
 pub fn get_index_page() -> actix_web::Route {
-    web::get().to(async || -> actix_web::Result<NamedFile> {
-        match NamedFile::open_async("static/indexv2.html").await {
+    web::get().to(async |app_state : web::Data<AppState>| -> actix_web::Result<NamedFile> {
+        match NamedFile::open_async(app_state.static_dir.join(PathBuf::from(StaticFile::Index))).await {
             Ok(f)=> Ok(f),
             Err(e) => {
                 info!("index route html file error: {}", e);
