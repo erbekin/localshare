@@ -22,6 +22,7 @@ Clone the repository and build the project:
 git clone https://github.com/erbekin/localshare.git
 cd localshare
 cargo build --release
+cargo install --path . # if you like to install
 ```
 
 ### Usage
@@ -30,9 +31,16 @@ Run the application:
 
 ```sh
 cargo run -- <options>
-```
 
+```
 Replace `<options>` with your desired command-line arguments.
+> **Note:**  
+> In first run in a new uploads directory, pass `-x` flag to localshare, this will extract `.html`files to static folder.
+> For a full list of available options, run:
+> 
+> ```sh
+> cargo run -- --help
+> ```
 
 ## Contributing
 
