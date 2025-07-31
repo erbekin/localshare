@@ -19,12 +19,9 @@ use crate::config::{get_404_page, get_index_page, get_upload_page};
 mod cli;
 mod config;
 
-// To prevent further env var changes
-const LOCALSHARE_RMPASS: &str = "LOCALSHARE_RMPASS";
-const LOCALSHARE_RMPASS_HEADER_STR: &str = "X-LocalShare-RMPASS";
-const STATIC_DIRNAME_DEV : &str = "static";
-const STATIC_DIRNAME_EXE : &str = "static";
-
+use config::LOCALSHARE_RMPASS;
+use config::LOCALSHARE_RMPASS_HEADER_STR;
+use config::STATIC_DIRNAME;
 
 #[derive(Deserialize)]
 struct RequestId {
@@ -324,26 +321,24 @@ async fn main() -> std::io::Result<()> {
         None => log::LevelFilter::Info,
     };
     config::configure_logger(log_level_filter).expect("Failed to init logger");
-    info!(target : "app", "Logger initialized");
+    info!("Logger initialized");
     debug!("parsed args: {:#?}", cli);
 
-    match dotenvy::dotenv() {
-        Ok(_) => {
-            info!(".env loaded.");
-        }
-        Err(e) => {
-            warn!("error while loading .env: {}", e);
-        }
-    }
 
-    let rm_pass = std::env::var(LOCALSHARE_RMPASS).unwrap_or_else(|e| {
-        error!(
-            "environment variable: {} not found: {}",
-            LOCALSHARE_RMPASS, e
-        );
-        info!("please set {} env variable.", LOCALSHARE_RMPASS);
-        String::new()
-    });
+    let rm_pass = {
+        if let Some(pass) = cli.rm_pass {
+            pass
+        } else {
+            match config::load_rmpass_from_env() {
+                Some(pass) => pass,
+                None => {
+                    error!("{} environment variable is not set. Use --password option or set this variable", LOCALSHARE_RMPASS);
+                    return Ok(());
+                }
+            }
+        }
+    };
+    
     if rm_pass.is_empty() {
         error!(
             "env var {} should not be empty. Please set this to a strong password",
@@ -376,21 +371,21 @@ async fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    let mut static_dir = PathBuf::from(STATIC_DIRNAME_DEV);
 
-    if cli.extract_static_files {
-        info!("extracting static files.");
-        let extract_dir = PathBuf::from(&cli.dir).join(STATIC_DIRNAME_EXE);
-        
-        std::fs::create_dir_all(&extract_dir)?;
-        localshare::assets::Assets::new().extract_to_dir(&extract_dir)?;
-        static_dir = extract_dir;
-    }
+    
+
+    info!("extracting static files.");
+    let extract_dir = PathBuf::from(&cli.dir).join(STATIC_DIRNAME);
+    
+    std::fs::create_dir_all(&extract_dir)?;
+    localshare::assets::Assets::new().extract_to_dir(&extract_dir)?;
+    
+
 
     let file_manager = web::Data::new(AppState {
         file_manager: Mutex::new(fm),
         remove_password: rm_pass,
-        static_dir
+        static_dir : extract_dir
     });
 
     HttpServer::new(move || {

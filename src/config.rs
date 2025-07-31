@@ -3,10 +3,17 @@ use actix_files::NamedFile;
 use actix_web::{http::header::ContentType, http::StatusCode, web, Either, HttpResponse};
 use actix_web::Responder;
 use localshare::assets::StaticFile;
-use log::info;
+use log::{info, debug};
 use std::path::PathBuf;
 
 use crate::AppState;
+
+
+// To prevent further env var changes
+pub const LOCALSHARE_RMPASS: &str = "LOCALSHARE_RMPASS";
+pub const LOCALSHARE_RMPASS_HEADER_STR: &str = "X-LocalShare-RMPASS";
+pub const STATIC_DIRNAME : &str = "static";
+
 
 pub fn configure_logger(level : log::LevelFilter) -> Result<(), log::SetLoggerError>{
     env_logger::builder()
@@ -63,4 +70,22 @@ pub fn get_index_page() -> actix_web::Route {
             }
         }
     })
+}
+
+pub fn load_rmpass_from_env() -> Option<String> {
+    // Load .env
+    match dotenvy::dotenv() {
+        Ok(_) => {
+            info!(".env loaded.");
+        }
+        Err(e) => {
+            debug!(".env error: {}", e);
+        }
+    }
+    if let Ok(v) = std::env::var(LOCALSHARE_RMPASS) {
+        Some(v)
+    } else {
+        None
+    }
+
 }

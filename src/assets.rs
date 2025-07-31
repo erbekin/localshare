@@ -17,9 +17,9 @@ pub enum StaticFile {
 impl From<StaticFile> for PathBuf {
     fn from(value: StaticFile) -> Self {
         match value {
-            StaticFile::Index => PathBuf::from("indexv2.html"),
+            StaticFile::Index => PathBuf::from("index.html"),
             StaticFile::NotFound => PathBuf::from("not_found.html"),
-            StaticFile::Upload => PathBuf::from("uploadv2.html")
+            StaticFile::Upload => PathBuf::from("upload.html")
         }
     }
 }

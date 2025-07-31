@@ -484,7 +484,7 @@
         showMessage('Upload timed out. Please try again.', 'error');
       });
       
-      xhr.timeout = 30000; // 30 seconds timeout
+      xhr.timeout = 30000 * 2 * 60; // 1 hour timeout
       xhr.open('POST', '/api/upload', true);
       xhr.send(formData);
     }

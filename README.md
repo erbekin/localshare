@@ -1,51 +1,53 @@
 # LocalShare
 
-LocalShare is a Rust-based application designed to facilitate secure and efficient file sharing on your local network.
+LocalShare is a Rust-based application designed to facilitate secure and efficient file sharing over local networks. This project aims to provide a simple, fast, and user-friendly way to transfer files between devices without relying on external servers or internet connectivity.
+
+## Screenshots
+
+![Screenshot](screenshots/home.png)
+![Screenshot](screenshots/upload.png)
+![Screenshot](screenshots/cli.png)
+
 
 ## Features
 
-- Fast and secure file transfers
-- Simple command-line interface
-- Cross-platform support
+- **Cross-platform**: Works on Windows, macOS, and Linux.
+- **Easy to Use**: Simple command-line interface.
+- **No Internet Required**: Transfers files directly over your local network.
 
-## Getting Started
+## Installation
 
-### Prerequisites
+1. **Clone the repository:**
+    ```bash
+    git clone https://github.com/erbekin/localshare.git
+    cd localshare
+    ```
 
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable version)
+2. **Build the project:**
+    ```bash
+    cargo build --release
+    ```
 
-### Installation
+3. **Install the program:**
+    ```bash
+    cargo install --path .
+    ```
+    > If you don't want to install, run `cargo run --release -- <your options>` in the project root directory.
 
-Clone the repository and build the project:
+## Usage
 
-```sh
-git clone https://github.com/erbekin/localshare.git
-cd localshare
-cargo build --release
-cargo install --path . # if you like to install
-```
-
-### Usage
-
-Run the application:
-
-```sh
-cargo run -- <options>
-
-```
-Replace `<options>` with your desired command-line arguments.
-> **Note:**  
-> In first run in a new uploads directory, pass `-x` flag to localshare, this will extract `.html`files to static folder.
-> For a full list of available options, run:
-> 
-> ```sh
-> cargo run -- --help
-> ```
-
-## Contributing
-
-Contributions are welcome! Please open issues or submit pull requests.
+When you run `localshare` in a directory, inside that directory the uploads directory will be created. When you run in the same directory localshare continues to work in that directory.
+You can manually specify the upload directory using `-d`option.
+Static files will be extracted to `<upload_dir>/static` directory.
+For more help, run `localshare --help` 
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgements
+
+- [Rust Programming Language](https://www.rust-lang.org/)
+- [Actix Web](https://actix.rs/)
+- [Tokio](https://tokio.rs/)
+- [Serde](https://serde.rs/)
