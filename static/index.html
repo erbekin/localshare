@@ -756,7 +756,22 @@
         return;
       }
 
-      let password = prompt("enter remove password:");
+
+      let password_required = false;
+      try {
+        const response = await fetch('/api/password-required').then(res => res.json());
+        console.log(response);
+        if (response == true) {
+          password_required = true;
+        }
+      } catch (error) {
+          alert(`${translations[currentLanguage].remove_error}: ${error.message}`);
+      }
+
+      let password = "";
+      if (password_required) {
+        password = prompt("enter remove password:");
+      }
 
       try {
         const response = await fetch(`/api/remove/${fileId}`, {

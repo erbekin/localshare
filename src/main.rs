@@ -30,7 +30,7 @@ struct RequestId {
 struct AppState {
     file_manager: Mutex<FileManager>,
     remove_password: Option<String>,
-    static_dir : PathBuf,
+    static_dir: PathBuf,
 }
 
 async fn handle_download(
@@ -231,29 +231,32 @@ async fn handle_remove(
     req_id: web::Path<RequestId>,
     app_state: web::Data<AppState>,
 ) -> CustomizeResponder<web::Json<serde_json::Value>> {
-    match req.headers().get(LOCALSHARE_RMPASS_HEADER_STR) {
-        Some(h) => {
-            
-            if let Some(ref passwd) = app_state.remove_password && !h
-                .as_bytes()
-                .iter()
-                .eq(passwd.as_bytes().iter())
-            {
+
+    // Password protection
+    match &app_state.remove_password {
+        None => {
+            warn!("Removing file without authorization: {}", req_id.id);
+        }
+        Some(passwd) => match req.headers().get(LOCALSHARE_RMPASS_HEADER_STR) {
+            Some(h) => {
+                if !h.as_bytes().iter().eq(passwd.as_bytes().iter()) {
+                    return web::Json(json!({
+                        "message" : "password is incorrect, try again or ask server admin"
+                    }))
+                    .customize()
+                    .with_status(StatusCode::UNAUTHORIZED);
+                }
+            }
+            None => {
                 return web::Json(json!({
-                    "message" : "password is incorrect, try again or ask server admin"
+                    "message" : "password header expected but not found"
                 }))
                 .customize()
                 .with_status(StatusCode::UNAUTHORIZED);
             }
-        }
-        None => {
-            return web::Json(json!({
-                "message" : "password header expected but not found"
-            }))
-            .customize()
-            .with_status(StatusCode::UNAUTHORIZED);
-        }
+        },
     }
+    
 
     let mut fm = match app_state.file_manager.lock() {
         Ok(fmg) => fmg,
@@ -272,7 +275,7 @@ async fn handle_remove(
             match fm.save_records().await {
                 Ok(_) => {
                     info!("{} was saved", localshare::RECORD_FILENAME);
-                } 
+                }
                 Err(e) => {
                     error!("error while saving {}: {}", localshare::RECORD_FILENAME, e);
                 }
@@ -323,7 +326,7 @@ async fn main() -> std::io::Result<()> {
     config::configure_logger(log_level_filter).expect("Failed to init logger");
     info!("Logger initialized");
     debug!("args parsed: {:#?}", cli);
-    
+
     let config = AppConfig::new()
         .create_dir(cli.create_parent_dirs)
         .set_dir(&cli.dir);
@@ -339,21 +342,20 @@ async fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-
-    
-
     info!("extracting static files.");
     let extract_dir = PathBuf::from(&cli.dir).join(STATIC_DIRNAME);
-    
+
     std::fs::create_dir_all(&extract_dir)?;
     localshare::assets::Assets::new().extract_to_dir(&extract_dir)?;
-    
 
+    if let None = cli.rm_pass {
+        warn!("Remove password was not set, set via --password");
+    }
 
     let file_manager = web::Data::new(AppState {
         file_manager: Mutex::new(fm),
         remove_password: cli.rm_pass,
-        static_dir : extract_dir
+        static_dir: extract_dir,
     });
 
     HttpServer::new(move || {
@@ -371,6 +373,9 @@ async fn main() -> std::io::Result<()> {
             .route("/index.html", get_index_page())
             .route("/upload.html", get_upload_page())
             .route("/api/list", web::get().to(handle_list))
+            .route("/api/password-required", web::get().to( async |app_state : web::Data<AppState>|  {
+                return web::Json(app_state.remove_password.is_some());
+            }))
             .route("/api/upload", web::post().to(handle_upload))
             .route("/api/remove/{id}", web::post().to(handle_remove))
             .route("/api/download/{id}", web::get().to(handle_download))
