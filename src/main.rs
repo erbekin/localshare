@@ -19,7 +19,6 @@ use crate::config::{get_404_page, get_index_page, get_upload_page};
 mod cli;
 mod config;
 
-use config::LOCALSHARE_RMPASS;
 use config::LOCALSHARE_RMPASS_HEADER_STR;
 use config::STATIC_DIRNAME;
 
@@ -30,7 +29,7 @@ struct RequestId {
 
 struct AppState {
     file_manager: Mutex<FileManager>,
-    remove_password: String,
+    remove_password: Option<String>,
     static_dir : PathBuf,
 }
 
@@ -234,10 +233,11 @@ async fn handle_remove(
 ) -> CustomizeResponder<web::Json<serde_json::Value>> {
     match req.headers().get(LOCALSHARE_RMPASS_HEADER_STR) {
         Some(h) => {
-            if !h
+            
+            if let Some(ref passwd) = app_state.remove_password && !h
                 .as_bytes()
                 .iter()
-                .eq(app_state.remove_password.as_bytes().iter())
+                .eq(passwd.as_bytes().iter())
             {
                 return web::Json(json!({
                     "message" : "password is incorrect, try again or ask server admin"
@@ -248,7 +248,7 @@ async fn handle_remove(
         }
         None => {
             return web::Json(json!({
-                "message" : "password header not found"
+                "message" : "password header expected but not found"
             }))
             .customize()
             .with_status(StatusCode::UNAUTHORIZED);
@@ -322,40 +322,8 @@ async fn main() -> std::io::Result<()> {
     };
     config::configure_logger(log_level_filter).expect("Failed to init logger");
     info!("Logger initialized");
-    debug!("parsed args: {:#?}", cli);
-
-
-    let rm_pass = {
-        if let Some(pass) = cli.rm_pass {
-            pass
-        } else {
-            match config::load_rmpass_from_env() {
-                Some(pass) => pass,
-                None => {
-                    error!("{} environment variable is not set. Use --password option or set this variable", LOCALSHARE_RMPASS);
-                    return Ok(());
-                }
-            }
-        }
-    };
+    debug!("args parsed: {:#?}", cli);
     
-    if rm_pass.is_empty() {
-        error!(
-            "env var {} should not be empty. Please set this to a strong password",
-            LOCALSHARE_RMPASS
-        );
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!(
-                "env var {} should not be empty. Please set this to a strong password",
-                LOCALSHARE_RMPASS
-            ),
-        ));
-    }
-
-    
-    
-
     let config = AppConfig::new()
         .create_dir(cli.create_parent_dirs)
         .set_dir(&cli.dir);
@@ -384,7 +352,7 @@ async fn main() -> std::io::Result<()> {
 
     let file_manager = web::Data::new(AppState {
         file_manager: Mutex::new(fm),
-        remove_password: rm_pass,
+        remove_password: cli.rm_pass,
         static_dir : extract_dir
     });
 
