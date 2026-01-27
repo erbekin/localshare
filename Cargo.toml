@@ -2,5 +2,20 @@
 name = "localshare"
 version = "0.1.0"
 edition = "2024"
-
+authors = ["erbekin"]
+description = """localshare is a simple
+and fast file sharing app over local network without need of internet connection
+"""
 [dependencies]
+anyhow = "1.0.100"
+chrono = { version = "0.4.42", features = ["serde"] }
+clap = { version = "4.5.54", features = ["cargo"] }
+env_logger = "0.11.8"
+log = "0.4.29"
+rocket = { version = "0.5.1", features = ["json", "uuid"] }
+rusqlite = { version = "0.38.0", features = ["chrono"] }
+rust-embed = "8.11.0"
+serde = { version = "1.0.228", features = ["derive"] }
+tokio = { version = "1.49.0", features = ["full"] }
+toml = "0.9.10"
+uuid = { version = "1.19.0", features = ["v4"] }
