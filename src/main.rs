@@ -35,12 +35,12 @@ async fn handle_new(path : &PathBuf) -> anyhow::Result<()> {
     }
     fs::create_dir(path).await.context("Could not create directory")?;
     let config = Config::default();
-    fs::create_dir(path.join(&config.path.static_dir)).await?;
+    fs::create_dir(path.join(&config.path.r#static)).await?;
     fs::create_dir(path.join(&config.path.uploads)).await?;
 
     let assets = assets::Assets::new();
     assets.check_consistency().context("BuildError: assets module got error")?;
-    assets.extract_to_dir(path.join(&config.path.static_dir)).await?;
+    assets.extract_to_dir(path.join(&config.path.r#static)).await?;
 
     config.write_path(path).await.context("write error")?;
 

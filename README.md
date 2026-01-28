@@ -29,7 +29,7 @@ You need **Rust** and **Cargo** installed on your machine. If you don't have the
 
 3. **Access the application:**  
    Open your browser and navigate to:  
-   http://localhost:8000
+   http://<your_local_ip>:<your_configured_port>
 
 ## **📂 Usage**
 
@@ -54,15 +54,6 @@ If you want to interact with localshare programmatically, you can use the follow
 * **Async Runtime:** Tokio  
 * **Frontend:** HTML5, CSS3, Vanilla JavaScript
 
-## **🤝 Contributing**
-
-Contributions are welcome\!
-
-1. Fork the project.  
-2. Create your feature branch (git checkout \-b feature/AmazingFeature).  
-3. Commit your changes (git commit \-m 'Add some AmazingFeature').  
-4. Push to the branch (git push origin feature/AmazingFeature).  
-5. Open a Pull Request.
 
 ## **📄 License**
 

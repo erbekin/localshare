@@ -28,11 +28,7 @@ pub struct AppConfig {
 pub struct PathConfig {
     pub db: String,
     pub uploads: String,
-
-    // "static" is a reserved keyword in Rust, so we rename the field
-    // and tell serde to look for "static" in the file.
-    #[serde(rename = "static")]
-    pub static_dir: String,
+    pub r#static : String,
 }
 
 // 2. Default implementation for your 'new' command
@@ -47,7 +43,7 @@ impl Default for Config {
             path: PathConfig {
                 db: DB_NAME.to_string(),
                 uploads: "uploads".to_string(),
-                static_dir: STATIC_DIR.to_string(),
+                r#static: STATIC_DIR.to_string(),
             },
         }
     }

@@ -49,7 +49,7 @@ impl Server {
 async fn index(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
     let static_dir = {
         let server = server.lock().await;
-        server.wd.join(server.config.path.static_dir.clone())
+        server.wd.join(server.config.path.r#static.clone())
     };
     rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Index))).await
 }
@@ -57,7 +57,7 @@ async fn index(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
 async fn upload(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
     let static_dir = {
         let server = server.lock().await;
-        server.wd.join(server.config.path.static_dir.clone())
+        server.wd.join(server.config.path.r#static.clone())
     };
     rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Upload))).await
 }
