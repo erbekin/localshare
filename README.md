@@ -18,16 +18,17 @@
 
 You need **Rust** and **Cargo** installed on your machine. If you don't have them, install them via [rustup.rs](https://rustup.rs/).
 
-### **Build and Run**
+### **Install and Run**
 
-1. **Clone the repository:**  
-   git clone \[https://github.com/erbekin/localshare.git\](https://github.com/erbekin/localshare.git)  
-   cd localshare
+1. **Install with cargo:**  
+    `cargo install localshare`
 
-2. **Run the server:**  
-   cargo run \--release
+2. **Create new server configuration:**  
+    `localshare new "my_server"`
 
-3. **Access the application:**  
+
+3. **Run & Access the application:**
+   Run with: `localshare run "my_server"`
    Open your browser and navigate to:  
    http://<your_local_ip>:<your_configured_port>
 
