@@ -2,6 +2,10 @@
 name = "localshare"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+repository = "https://github.com/erbekin/localshare"
+readme = "README.md"
+keywords = ["server", "rocket", "localshare", "file-sharing"]
 authors = ["erbekin"]
 description = """localshare is a simple
 and fast file sharing app over local network without need of internet connection
