@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     assets::StaticFile,
-    config::Config,
-    fm::{FileManager, record::Record},
+    config::{Config, ConfigValidator},
+    fm::{record::Record, FileManager},
 };
 
 #[allow(dead_code)]
@@ -20,6 +20,13 @@ pub struct Server {
     wd: PathBuf,
     config: Config,
     fm: FileManager,
+}
+
+
+impl ConfigValidator for Config {
+    fn validate(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl Server {
@@ -33,7 +40,20 @@ impl Server {
     }
 
     pub async fn launch(self) -> anyhow::Result<()> {
-        let _ = Rocket::build()
+
+        let default_config =
+        if self.config.app.debug {
+            rocket::Config::debug_default()
+        } else {
+            rocket::Config::release_default()
+        };
+        let config = rocket::Config {
+                port: self.config.app.port.parse()?,
+                address: "0.0.0.0".parse().unwrap(),
+                log_level : rocket::config::LogLevel::Critical,
+                ..default_config
+            };
+        let _ = Rocket::custom(config)
             .manage(Mutex::new(self))
             .mount(
                 "/",

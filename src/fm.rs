@@ -4,7 +4,7 @@ use anyhow::Context;
 use rusqlite::{Connection, OptionalExtension};
 use uuid::Uuid;
 
-use crate::config::{Config, ConfigValidator};
+use crate::config::Config;
 
 // Manages files
 pub struct FileManager {
@@ -126,11 +126,5 @@ pub mod record {
         pub description: Option<String>,
         // who uploaded
         pub author: String,
-    }
-}
-
-impl ConfigValidator for Config {
-    fn validate(&self) -> anyhow::Result<()> {
-        Ok(())
     }
 }
