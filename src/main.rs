@@ -62,7 +62,7 @@ async fn handle_run(path: &PathBuf) -> anyhow::Result<()> {
         .context("Couldn't open LocalShare.toml")?;
     if let Ok(ip) = local_ip_address::local_ip() {
         log::info!("Server local ip address: {}", ip);
-        let address = format!("http://{}:{}", ip, conf.app.port);
+        // let address = format!("http://{}:{}", ip, conf.app.port);
         // if let Ok(qr) = qrcode::QrCode::new(address) {
         //     let img = qr.render::<Luma<u8>>().build();
 
