@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use localshare::{assets, config::Config, server::Server};
+use localshare::{assets, config::{self, Config}, server::Server};
 use tokio::fs;
 
 #[rocket::main]
@@ -60,19 +60,32 @@ async fn handle_run(path: &PathBuf) -> anyhow::Result<()> {
     let conf = Config::read_path_and_validate(path)
         .await
         .context("Couldn't open LocalShare.toml")?;
+
     if let Ok(ip) = local_ip_address::local_ip() {
         log::info!("Server local ip address: {}", ip);
-        // let address = format!("http://{}:{}", ip, conf.app.port);
-        // if let Ok(qr) = qrcode::QrCode::new(address) {
-        //     let img = qr.render::<Luma<u8>>().build();
-
-        // }
+        let address = format!("http://{}:{}", ip, conf.app.port);
+        let qr_path = path.join(&conf.path.r#static).join(config::QR_ACCESS_FNAME);
+        if let Err(e) = generate_qr(&address, &qr_path) {
+            log::warn!("Could not generate QR code: {}", e);
+        } else {
+            log::info!("QR code saved to {}", qr_path.display());
+        }
     }
+
     let server = Server::new(path, conf)?;
     server.launch().await?;
     Ok(())
 }
 
+fn generate_qr(url: &str, output_path: &PathBuf) -> anyhow::Result<()> {
+    use image::Luma;
+    let code = qrcode::QrCode::new(url.as_bytes())
+        .context("Failed to generate QR code")?;
+    let img = code.render::<Luma<u8>>().build();
+    img.save(output_path)
+        .context("Failed to save QR image")?;
+    Ok(())
+}
 fn init_logger() -> anyhow::Result<()> {
     use env_logger::{Builder, Env};
     Builder::new()

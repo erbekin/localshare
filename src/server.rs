@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use rocket::{
-    data::ToByteUnit, fs::NamedFile, response::{status::{self, Custom}, stream::{One, ReaderStream}, Responder}, routes, serde::json::Json, Data, Response, Rocket, State
+    Data, Response, Rocket, State, config::Shutdown, data::ToByteUnit, fs::NamedFile, response::{Responder, status::{self, Custom}, stream::{One, ReaderStream}}, routes, serde::json::Json
 };
 use rocket::http::{hyper::header, ContentType, Status};
 use serde::{Deserialize, Serialize};
@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     assets::StaticFile,
-    config::{Config, ConfigValidator},
-    fm::{record::Record, FileManager},
+    config::{self, Config, ConfigValidator},
+    fm::{FileManager, record::Record},
 };
 
 #[allow(dead_code)]
@@ -57,7 +57,7 @@ impl Server {
             .manage(Mutex::new(self))
             .mount(
                 "/",
-                routes![index, upload, route_api_list, route_api_upload, route_api_download],
+                routes![index, upload, qr, route_api_list, route_api_upload, route_api_download],
             )
             .launch()
             .await?;
@@ -80,6 +80,16 @@ async fn upload(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
         server.wd.join(server.config.path.r#static.clone())
     };
     rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Upload))).await
+}
+
+#[rocket::get("/qr")]
+async fn qr(server : &State<Mutex<Server>>) -> Result<NamedFile, Status> {
+    let path_to_qr = {
+        let server = server.lock().await;
+        // $WORK_DIR/$static/$qr_filename
+        server.wd.join(server.config.path.r#static.clone()).join(config::QR_ACCESS_FNAME)
+    };
+    NamedFile::open(&path_to_qr).await.map_err(|_| Status::NotFound)
 }
 #[rocket::get("/api/list")]
 async fn route_api_list(

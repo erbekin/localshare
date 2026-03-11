@@ -5,7 +5,7 @@ pub const UPLOAD_DIR: &str = "uploads";
 pub const DEFAULT_PORT: &str = "8080";
 pub const STATIC_DIR: &str = "static";
 pub const CONFIG_FNAME: &str = "LocalShare.toml";
-
+pub const QR_ACCESS_FNAME : &str = "qr_access.png";
 
 
 

@@ -56,12 +56,34 @@
             .btn-primary:hover {
                 background-color: #218838;
             }
+            .qr-section {
+                text-align: center;
+                margin-bottom: 2rem;
+            }
+            .qr-section img {
+                width: 180px;
+                height: 180px;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+            }
+            .qr-section p {
+                color: #555;
+                font-size: 0.85em;
+                margin-top: 0.5rem;
+            }
         </style>
     </head>
     <body>
         <div class="nav-header">
             <h1>Uploaded Records</h1>
             <a href="/upload" class="btn-primary">+ Upload New File</a>
+        </div>
+        <div class="qr-section" id="qr-section">
+            <img id="qr-img" src="/qr" alt="QR Code" onerror="handleQrError()" />
+            <p>Scan to open on your phone</p>
+        </div>
+        <div id="qr-error" style="display:none; color:#888; font-size:0.85em; margin-bottom:1rem;">
+            QR code not available
         </div>
         <div id="output">Loading…</div>
 
@@ -111,7 +133,10 @@
                     output.innerHTML = `<div class="error">Error: ${err.message}</div>`;
                 }
             }
-
+            function handleQrError() {
+                document.getElementById("qr-section").style.display = "none";
+                document.getElementById("qr-error").style.display = "block";
+            }
             loadRecords();
         </script>
     </body>
