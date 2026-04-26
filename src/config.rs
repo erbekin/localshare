@@ -6,7 +6,7 @@ pub const DEFAULT_PORT: &str = "8080";
 pub const STATIC_DIR: &str = "static";
 pub const CONFIG_FNAME: &str = "LocalShare.toml";
 pub const QR_ACCESS_FNAME : &str = "qr_access.png";
-
+pub const SESSION_COOKIE_NAME : &str = "session_id";
 
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -22,6 +22,7 @@ pub struct AppConfig {
     // If you remove quotes in TOML, change this to u16.
     pub port: String,
     pub debug: bool,
+    pub auth : bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -35,10 +36,11 @@ pub struct PathConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            version: "0.1.0".to_string(), // Or get from CARGO_PKG_VERSION
+            version: env!("CARGO_PKG_VERSION").to_string(),
             app: AppConfig {
                 port: DEFAULT_PORT.to_string(),
                 debug: true,
+                auth: false,
             },
             path: PathConfig {
                 db: DB_NAME.to_string(),
@@ -49,16 +51,11 @@ impl Default for Config {
     }
 }
 
-/// This is implemented for Config by fm module
-pub trait ConfigValidator {
-    /// Returns Ok(()) if valid, or an error description if invalid
-    fn validate(&self) -> anyhow::Result<()>;
-}
+
 pub mod utils {
     use std::path::Path;
     use anyhow::Context;
     use tokio::{fs, io};
-    use super::ConfigValidator;
 
     use crate::config::CONFIG_FNAME;
 
@@ -69,7 +66,7 @@ pub mod utils {
             fs::write(file_path, toml_string).await?;
             Ok(())
         }
-        pub async fn read_path_and_validate(root: &Path) -> anyhow::Result<Self> {
+        pub async fn read_path(root: &Path) -> anyhow::Result<Self> {
             let file_path = root.join(CONFIG_FNAME);
 
             // 1. Read the file asynchronously
@@ -81,11 +78,7 @@ pub mod utils {
             let config: Self =
                 toml::from_str(&content).context("Failed to parse Localshare.toml syntax")?;
 
-            // 3. Validate using the trait we defined earlier
-            // (Make sure `use crate::your_module::ConfigValidator;` is at the top of this file)
-            config
-                .validate()
-                .context("Configuration validation failed")?;
+
 
             Ok(config)
         }

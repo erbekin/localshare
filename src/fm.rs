@@ -104,6 +104,10 @@ impl FileManager {
         Ok(self.conn.last_insert_rowid())
     }
 
+    pub fn delete_record(&mut self, uuid: Uuid) -> anyhow::Result<bool> {
+        let rows = self.conn.execute("DELETE FROM records WHERE uuid = ?1", [uuid.to_string()])?;
+        Ok(rows > 0)
+    }
     pub fn get_wd(&self) -> &Path {
         &self.working_dir
     }

@@ -56,6 +56,36 @@
             .btn-primary:hover {
                 background-color: #218838;
             }
+            .delete-btn {
+                display: inline-block;
+                background-color: #dc3545;
+                color: white;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                font-size: 0.9em;
+                margin-top: 0.5rem;
+                margin-left: 0.4rem;
+                cursor: pointer;
+            }
+            .delete-btn:hover { background-color: #b02a37; }
+
+            #admin-btn {
+                background-color: #6c757d;
+                color: white;
+                padding: 0.6rem 1.2rem;
+                text-decoration: none;
+                border-radius: 4px;
+                font-weight: bold;
+                border: none;
+                cursor: pointer;
+                font-size: 1rem;
+            }
+            #admin-btn:hover { background-color: #5a6268; }
+            #admin-btn.is-admin {
+                background-color: #28a745;
+                cursor: default;
+            }
             .qr-section {
                 text-align: center;
                 margin-bottom: 2rem;
@@ -76,7 +106,10 @@
     <body>
         <div class="nav-header">
             <h1>Uploaded Records</h1>
-            <a href="/upload" class="btn-primary">+ Upload New File</a>
+            <div style="display:flex; gap:0.6rem; align-items:center;">
+                <button id="admin-btn" onclick="handleAdminClick()">Login as Admin</button>
+                <a href="/upload" class="btn-primary">+ Upload New File</a>
+            </div>
         </div>
         <div class="qr-section" id="qr-section">
             <img id="qr-img" src="/qr" alt="QR Code" onerror="handleQrError()" />
@@ -88,6 +121,45 @@
         <div id="output">Loading…</div>
 
         <script>
+            let isAdmin = false;
+
+            async function checkSession() {
+                try {
+                    const res = await fetch("/api/session");
+                    return res.ok;
+                } catch (_) {
+                    return false;
+                }
+            }
+
+            function handleAdminClick() {
+                if (isAdmin) return; // already admin, button is decorative
+                window.location.href = "/api/login?return_url=/";
+            }
+
+            function setAdminUI(admin) {
+                isAdmin = admin;
+                const btn = document.getElementById("admin-btn");
+                if (admin) {
+                    btn.textContent = "Admin \u2713";
+                    btn.classList.add("is-admin");
+                } else {
+                    btn.textContent = "Login as Admin";
+                    btn.classList.remove("is-admin");
+                }
+            }
+
+            async function deleteRecord(uuid) {
+                if (!confirm("Permanently delete this file?")) return;
+                const res = await fetch(`/api/delete/${uuid}`, { method: "DELETE" });
+                if (res.ok) {
+                    await loadRecords();
+                } else {
+                    const text = await res.text();
+                    alert("Delete failed: " + (text || res.status));
+                }
+            }
+
             async function loadRecords() {
                 const output = document.getElementById("output");
 
@@ -111,17 +183,17 @@
                         const div = document.createElement("div");
                         div.className = "record";
 
-                        // Added the <a href> tag pointing to /api/download/<uuid>
                         div.innerHTML = `
-                        <strong>${r.name}</strong>
-                        <div class="meta">
-                            UUID: ${r.uuid}<br>
-                            Uploaded: ${new Date(r.uploaded_at).toLocaleString()}<br>
-                            Author: ${r.author}
-                        </div>
-                        <p>${r.description ?? "No description"}</p>
-                        <a href="/api/download/${r.uuid}" class="download-btn">Download</a>
-                    `;
+                            <strong>${r.name}</strong>
+                            <div class="meta">
+                                UUID: ${r.uuid}<br>
+                                Uploaded: ${new Date(r.uploaded_at).toLocaleString()}<br>
+                                Author: ${r.author}
+                            </div>
+                            <p>${r.description ?? "No description"}</p>
+                            <a href="/api/download/${r.uuid}" class="download-btn">Download</a>
+                            ${isAdmin ? `<button class="delete-btn" onclick="deleteRecord('${r.uuid}')">Delete</button>` : ""}
+                        `;
 
                         output.appendChild(div);
                     }
@@ -133,11 +205,18 @@
                     output.innerHTML = `<div class="error">Error: ${err.message}</div>`;
                 }
             }
+
             function handleQrError() {
                 document.getElementById("qr-section").style.display = "none";
                 document.getElementById("qr-error").style.display = "block";
             }
-            loadRecords();
+
+            // Startup
+            (async () => {
+                const admin = await checkSession();
+                setAdminUI(admin);
+                await loadRecords();
+            })();
         </script>
     </body>
 </html>

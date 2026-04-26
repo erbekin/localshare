@@ -64,6 +64,34 @@
         }
         #upload-btn:hover { background-color: #0056b3; }
         #upload-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Progress Bar */
+        #progress-container {
+            display: none;
+            margin-top: 1.2rem;
+        }
+        #progress-track {
+            width: 100%;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            height: 10px;
+        }
+        #progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #007bff;
+            border-radius: 4px;
+            transition: width 0.1s ease, background 0.3s ease;
+        }
+        #progress-fill.success { background: #28a745; }
+        #progress-fill.error   { background: #dc3545; }
+        #progress-label {
+            text-align: center;
+            font-size: 0.82rem;
+            color: #555;
+            margin-top: 0.4rem;
+        }
     </style>
 </head>
 <body>
@@ -90,65 +118,89 @@
         </div>
 
         <button id="upload-btn">Upload File</button>
+
+        <div id="progress-container">
+            <div id="progress-track">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="progress-label">0%</div>
+        </div>
     </div>
 
     <script>
-        const btn = document.getElementById("upload-btn");
+        const btn          = document.getElementById("upload-btn");
+        const progressBox  = document.getElementById("progress-container");
+        const progressFill = document.getElementById("progress-fill");
+        const progressLbl  = document.getElementById("progress-label");
 
-        btn.onclick = async () => {
-            const fileInput = document.getElementById("file");
+        function setProgress(pct, state) {
+            progressFill.style.width = pct + "%";
+            progressLbl.textContent  = pct + "%";
+            progressFill.className   = state ?? "";
+        }
+
+        function resetUI() {
+            btn.disabled  = false;
+            btn.innerText = "Upload File";
+        }
+
+        btn.onclick = () => {
+            const fileInput   = document.getElementById("file");
             const authorInput = document.getElementById("author");
-            const descInput = document.getElementById("description");
+            const descInput   = document.getElementById("description");
 
-            const file = fileInput.files[0];
-            const author = authorInput.value.trim();
+            const file        = fileInput.files[0];
+            const author      = authorInput.value.trim();
             const description = descInput.value.trim();
 
-            // Basic Validation
-            if (!file) return alert("Please select a file.");
+            if (!file)   return alert("Please select a file.");
             if (!author) return alert("Please enter an author name.");
 
-            // Disable button to prevent double clicks
-            btn.disabled = true;
-            btn.innerText = "Uploading...";
+            // Prepare UI
+            btn.disabled              = true;
+            btn.innerText             = "Uploading\u2026";
+            progressBox.style.display = "block";
+            progressFill.className    = "";
+            setProgress(0);
 
-            try {
-                // Construct URL params for metadata
-                const params = new URLSearchParams({
-                    author: author,
-                    description: description,
-                    filename: file.name,
-                });
+            const params = new URLSearchParams({ author, description, filename: file.name });
 
-                // Send request
-                const res = await fetch(`/api/upload?${params}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/octet-stream",
-                    },
-                    body: file,
-                });
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || "Upload failed");
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `/api/upload?${params}`);
+            xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+            // --- Progress tracking ---
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) {
+                    setProgress(Math.round((e.loaded / e.total) * 100));
                 }
+            });
 
-                const id = await res.json();
-                alert(`Success! File uploaded with ID: ${id.id}`);
+            // --- Success / failure ---
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    setProgress(100, "success");
+                    progressLbl.textContent = "Done!";
+                    const { id } = JSON.parse(xhr.responseText);
+                    alert(`Success! File uploaded with ID: ${id}`);
+                    fileInput.value = "";
+                    descInput.value = "";
+                } else {
+                    setProgress(100, "error");
+                    progressLbl.textContent = "Upload failed";
+                    alert("Error: " + (xhr.responseText || "Upload failed"));
+                }
+                resetUI();
+            };
 
-                // Clear form or redirect
-                fileInput.value = "";
-                descInput.value = "";
-                // window.location.href = "/"; // Optional: Redirect back to home
+            xhr.onerror = () => {
+                setProgress(100, "error");
+                progressLbl.textContent = "Network error";
+                alert("A network error occurred. Check your connection and try again.");
+                resetUI();
+            };
 
-            } catch (err) {
-                console.error(err);
-                alert("Error: " + err.message);
-            } finally {
-                // Re-enable button
-                btn.disabled = false;
-                btn.innerText = "Upload File";
-            }
+            xhr.send(file);
         };
     </script>
 </body>

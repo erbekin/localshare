@@ -6,3 +6,4 @@ pub mod assets;
 pub mod qr;
 pub mod mdns;
 pub mod utils;
+pub mod session;

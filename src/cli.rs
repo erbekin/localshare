@@ -25,6 +25,19 @@ pub fn get_command() -> Command {
                              The directory must not already exist.",
                         )
                         .required(true),
+                )
+                .arg(
+                    Arg::new("auth")
+                        .long("auth")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Enable password authentication for admin actions")
+                        .long_help(
+                            "When set, the server will require a password to perform \
+                             privileged actions such as deleting files.\n\n\
+                             The password is read from the LOCALSHARE_PASSWORD environment \
+                             variable each time the server starts. If the variable is not \
+                             set or is empty, the server will refuse to start.",
+                        ),
                 ),
         )
         .subcommand(

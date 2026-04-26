@@ -10,6 +10,7 @@ struct StaticAssets;
 pub enum StaticFile {
     Index,
     Upload,
+    Login,
 }
 
 
@@ -19,7 +20,8 @@ impl From<StaticFile> for PathBuf {
         match value {
             StaticFile::Index => PathBuf::from("index.html"),
             // StaticFile::NotFound => PathBuf::from("not_found.html"),
-            StaticFile::Upload => PathBuf::from("upload.html")
+            StaticFile::Upload => PathBuf::from("upload.html"),
+            StaticFile::Login => PathBuf::from("login.html"),
         }
     }
 }
@@ -33,6 +35,7 @@ impl Assets {
         assets.push(StaticFile::Index.into());
         // assets.push(StaticFile::NotFound.into());
         assets.push(StaticFile::Upload.into());
+        assets.push(StaticFile::Login.into());
         Self(assets)
     }
 
