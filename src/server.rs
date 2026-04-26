@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use rocket::FromForm;
+use rocket::{FromForm};
 use rocket::form::Form;
 use rocket::http::{Cookie, CookieJar};
 use rocket::http::{ContentType, Status, hyper::header};
@@ -94,6 +94,7 @@ impl Server {
                     route_api_login,
                     route_api_session,
                     route_api_auth,
+                    route_api_logout
                 ],
             )
             .launch()
@@ -118,6 +119,16 @@ async fn upload(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
     };
     rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Upload))).await
 }
+
+#[rocket::get("/login")]
+async fn login_page(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
+    let static_dir = {
+        let server = server.lock().await;
+        server.wd.join(server.config.path.r#static.clone())
+    };
+    rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Login))).await
+}
+
 
 #[rocket::get("/qr")]
 async fn qr(server: &State<Mutex<Server>>) -> Result<NamedFile, Status> {
@@ -342,14 +353,6 @@ async fn route_api_session(_session: SessionId) -> Status {
     Status::Ok
 }
 
-#[rocket::get("/login")]
-async fn login_page(server: &State<Mutex<Server>>) -> io::Result<NamedFile> {
-    let static_dir = {
-        let server = server.lock().await;
-        server.wd.join(server.config.path.r#static.clone())
-    };
-    rocket::fs::NamedFile::open(static_dir.join(PathBuf::from(StaticFile::Login))).await
-}
 
 #[derive(FromForm)]
 struct LoginForm {
@@ -384,4 +387,20 @@ async fn route_api_auth(
         }
         None => Ok(Redirect::to(redirect_to)),
     }
+}
+
+
+#[rocket::post("/api/logout?<return_url>")]
+async fn route_api_logout(
+    session_id : SessionId,
+    session_storage: &State<Mutex<SessionStorage>>,
+    cookies: &CookieJar<'_>,
+    return_url: Option<String>) -> Redirect {
+        session_storage.lock().await.remove(&session_id);
+        cookies.remove_private(Cookie::from(session_id));
+        if let Some(url) = return_url {
+            Redirect::to(url)
+        } else {
+            Redirect::to("/")
+        }
 }

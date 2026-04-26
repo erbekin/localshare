@@ -86,6 +86,20 @@
                 background-color: #28a745;
                 cursor: default;
             }
+            #logout-btn {
+                background-color: transparent;
+                color: #6c757d;
+                border: 1px solid #6c757d;
+                padding: 0.6rem 1.2rem;
+                border-radius: 4px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 1rem;
+            }
+            #logout-btn:hover {
+                background-color: #6c757d;
+                color: white;
+            }
             .qr-section {
                 text-align: center;
                 margin-bottom: 2rem;
@@ -107,6 +121,7 @@
         <div class="nav-header">
             <h1>Uploaded Records</h1>
             <div style="display:flex; gap:0.6rem; align-items:center;">
+                <button id="logout-btn" onclick="doLogout()" style="display:none">Logout</button>
                 <button id="admin-btn" onclick="handleAdminClick()">Login as Admin</button>
                 <a href="/upload" class="btn-primary">+ Upload New File</a>
             </div>
@@ -139,14 +154,25 @@
 
             function setAdminUI(admin) {
                 isAdmin = admin;
-                const btn = document.getElementById("admin-btn");
+                const adminBtn  = document.getElementById("admin-btn");
+                const logoutBtn = document.getElementById("logout-btn");
                 if (admin) {
-                    btn.textContent = "Admin \u2713";
-                    btn.classList.add("is-admin");
+                    adminBtn.textContent = "Admin \u2713";
+                    adminBtn.classList.add("is-admin");
+                    logoutBtn.style.display = "";
                 } else {
-                    btn.textContent = "Login as Admin";
-                    btn.classList.remove("is-admin");
+                    adminBtn.textContent = "Login as Admin";
+                    adminBtn.classList.remove("is-admin");
+                    logoutBtn.style.display = "none";
                 }
+            }
+
+            async function doLogout() {
+                try {
+                    await fetch("/api/logout", { method: "POST" });
+                } catch (_) {}
+                setAdminUI(false);
+                await loadRecords();
             }
 
             async function deleteRecord(uuid) {
