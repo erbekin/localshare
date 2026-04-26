@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use localshare::{assets, config::{self, Config}, server::Server};
+use localshare::{assets, config::Config, qr, server::Server, mdns};
 use tokio::fs;
 
 #[rocket::main]
@@ -14,13 +14,13 @@ async fn main() -> anyhow::Result<()> {
             let path = m.get_one("workdir").expect("workdir is required argument");
             handle_run(path)
                 .await
-                .context("command failed, I have nothing to do with it.")?;
+                .context("Failed to start the server")?;
         }
         ("new", m) => {
             let path = m.get_one("workdir").expect("workdir is required argument");
             handle_new(path)
                 .await
-                .context("hint: you may remove directory and try again")?;
+                .context("Failed to initialise server directory")?;
         }
         _ => {
             unreachable!("no other subcmd");
@@ -31,7 +31,10 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_new(path: &PathBuf) -> anyhow::Result<()> {
     if path.exists() {
-        anyhow::bail!("The directory already exists")
+        anyhow::bail!(
+            "Directory '{}' already exists. Remove it first or choose a different path.",
+            path.display()
+        )
     }
     fs::create_dir(path)
         .await
@@ -43,12 +46,15 @@ async fn handle_new(path: &PathBuf) -> anyhow::Result<()> {
     let assets = assets::Assets::new();
     assets
         .check_consistency()
-        .context("BuildError: assets module got error")?;
+        .context("Failed to verify embedded static assets")?;
     assets
         .extract_to_dir(path.join(&config.path.r#static))
         .await?;
 
-    config.write_path(path).await.context("write error")?;
+    config
+        .write_path(path)
+        .await
+        .context("Failed to write LocalShare.toml")?;
 
     println!(
         "New LocalShare server configuration has been created at {}",
@@ -56,36 +62,26 @@ async fn handle_new(path: &PathBuf) -> anyhow::Result<()> {
     );
     Ok(())
 }
+
 async fn handle_run(path: &PathBuf) -> anyhow::Result<()> {
     let conf = Config::read_path_and_validate(path)
         .await
-        .context("Couldn't open LocalShare.toml")?;
+        .context(format!(
+            "Failed to read configuration from '{}'. \
+             Ensure the directory was initialised with 'localshare new'.",
+            path.display()
+        ))?;
 
-    if let Ok(ip) = local_ip_address::local_ip() {
-        log::info!("Server local ip address: {}", ip);
-        let address = format!("http://{}:{}", ip, conf.app.port);
-        let qr_path = path.join(&conf.path.r#static).join(config::QR_ACCESS_FNAME);
-        if let Err(e) = generate_qr(&address, &qr_path) {
-            log::warn!("Could not generate QR code: {}", e);
-        } else {
-            log::info!("QR code saved to {}", qr_path.display());
-        }
-    }
+    let mut mdns_service = mdns::start_service(&conf)
+        .context("Could not start mDNS service")?;
+    qr::generate_qr(path, &conf);
 
     let server = Server::new(path, conf)?;
     server.launch().await?;
+    mdns_service.shutdown();
     Ok(())
 }
 
-fn generate_qr(url: &str, output_path: &PathBuf) -> anyhow::Result<()> {
-    use image::Luma;
-    let code = qrcode::QrCode::new(url.as_bytes())
-        .context("Failed to generate QR code")?;
-    let img = code.render::<Luma<u8>>().build();
-    img.save(output_path)
-        .context("Failed to save QR image")?;
-    Ok(())
-}
 fn init_logger() -> anyhow::Result<()> {
     use env_logger::{Builder, Env};
     Builder::new()
