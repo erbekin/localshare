@@ -1,5 +1,7 @@
 //! This module publishs mDNS service
 
+use std::collections::HashMap;
+
 use anyhow::Context;
 use mdns_sd::{DaemonStatus, ServiceDaemon, ServiceInfo};
 
@@ -36,9 +38,11 @@ impl MDnsService {
 }
 pub fn start_service(conf: &Config) -> anyhow::Result<MDnsService> {
     let mdns = ServiceDaemon::new()?;
-    let service_type = "_localshare._tcp.local.";
-    let instance_name = "localshare"; // This creates "localshare.local"
+    let service_type = "_http._tcp.local.";
+    let instance_name = "LocalShare"; // This creates "localshare.local"
     let host_name = format!("{}.local.", instance_name);
+    let mut properties = HashMap::new();
+    properties.insert("path".to_owned(), "/".to_owned());
     let service_info = ServiceInfo::new(
         service_type,
         instance_name,
@@ -48,7 +52,7 @@ pub fn start_service(conf: &Config) -> anyhow::Result<MDnsService> {
             .port
             .parse()
             .context("Could not parse port string to u16")?,
-        None,
+        properties,
     ).context("Could not initialize service info")?;
     mdns.register(service_info).context("Could not register mdns service")?;
     Ok(MDnsService { daemon: mdns, shutdown: false })

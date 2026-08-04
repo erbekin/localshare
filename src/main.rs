@@ -91,7 +91,7 @@ fn init_logger() -> anyhow::Result<()> {
     Builder::new()
         .parse_env(
             Env::new()
-                .default_filter_or("info,localshare=info")
+                .default_filter_or("warn,rocket=info,localshare=info")
                 .default_write_style_or("auto"),
         )
         .try_init()

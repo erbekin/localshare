@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-
 use chrono::Utc;
 use rocket::{FromForm};
 use rocket::form::Form;
@@ -74,7 +73,6 @@ impl Server {
         let config = rocket::Config {
             port: self.config.app.port.parse()?,
             address: "0.0.0.0".parse().unwrap(),
-            log_level: rocket::config::LogLevel::Normal,
             ..default_config
         };
         let _ = Rocket::custom(config)
